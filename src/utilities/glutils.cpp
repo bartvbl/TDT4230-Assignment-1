@@ -1,7 +1,8 @@
+#include <cassert>
+#include <vector>
 #include <glad/glad.h>
 #include <program.hpp>
-#include "glutils.h"
-#include <vector>
+#include "glutils.hpp"
 
 template <class T>
 unsigned int generateAttribute(int id, int elementsPerEntry, std::vector<T> data, bool normalize) {

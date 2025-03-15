@@ -1,19 +1,19 @@
-// Local headers
-#include "program.hpp"
-#include "utilities/window.hpp"
-#include "gamelogic.h"
+#include <cassert>
+#include <iostream>
 #include <glm/glm.hpp>
 // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
+#include <glm/gtc/type_ptr.hpp>
 #include <SFML/Audio.hpp>
 #include <SFML/System/Time.hpp>
-#include <utilities/shapes.h>
-#include <utilities/glutils.h>
-#include <utilities/shader.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <utilities/timeutils.h>
 
+#include "gamelogic.hpp"
+#include "program.hpp"
+#include "utilities/glutils.hpp"
+#include "utilities/shader.hpp"
+#include "utilities/shapes.hpp"
+#include "utilities/timeutils.h"
+#include "utilities/window.hpp"
 
 void runProgram(GLFWwindow* window, CommandLineOptions options)
 {

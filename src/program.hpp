@@ -7,7 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <string>
-#include <utilities/window.hpp>
+#include "utilities/window.hpp"
 
 
 // Main OpenGL program

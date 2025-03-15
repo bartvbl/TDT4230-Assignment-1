@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 // I recommend closing this file right now.
 // You'll only find despair here
 // And cries of "WHY"
