@@ -31,11 +31,18 @@
 *.app
 
 # Build directory
-/build/*
-!/build/.emptydirectory
+/compile_commands.json
+/build/
 
 # Debug build directory
-/build-debug/*
+/build-debug/
 
+# Editors
 /.vscode/*
 /.vs/
+/.zed/
+/.direnv/
+/.cache/
+
+# Hacky way to make code searching in editors a lot more nicer
+/lib/*/

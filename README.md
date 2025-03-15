@@ -18,7 +18,7 @@ You may use CMake-gui or the command-line cmake to generate a Visual Studio solu
 
 ### Linux:
 
-Make sure you have a C/C++ compiler such as  GCC, CMake and Git.
+Make sure you have a C/C++ compiler such as GCC, CMake, Python and Git.
 
 	make run
 
@@ -29,3 +29,13 @@ which is equivalent to
 	cmake ..
 	make
 	./glowbox
+
+#### other nifty tools
+
+If you want to debug a crash:
+
+  make run-debug
+
+If you want to debug a frame with [renderdoc](https://renderdoc.org/):
+
+  make run-renderdoc
