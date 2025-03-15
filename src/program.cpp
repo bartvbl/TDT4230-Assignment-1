@@ -15,6 +15,39 @@
 #include "utilities/timeutils.h"
 #include "utilities/window.hpp"
 
+void GLAPIENTRY
+openglErrorCallback(
+    GLenum source, GLenum type, GLuint id, GLenum severity,
+    GLsizei length, const GLchar* message, const void* userParam
+)
+{
+    const char *typeStr;
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR:
+            typeStr = "ERROR"; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+            typeStr = "DEPRECATED_BEHAVIOR"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+            typeStr = "UNDEFINED_BEHAVIOR"; break;
+        case GL_DEBUG_TYPE_PORTABILITY:
+            typeStr = "PORTABILITY"; break;
+        case GL_DEBUG_TYPE_PERFORMANCE:
+            typeStr = "PERFORMANCE"; break;
+        case GL_DEBUG_TYPE_OTHER:
+            typeStr = "OTHER"; break;
+        default:
+            typeStr = "UNKNOWN"; break;
+    }
+
+    fprintf(stderr,
+        "GL CALLBACK: %s (0x%x), %s (severity = 0x%x)\n",
+        typeStr,
+        type,
+        message,
+        severity
+    );
+}
+
 void runProgram(GLFWwindow* window, CommandLineOptions options)
 {
     // Enable depth (Z) buffer (accept "closest" fragment)
@@ -30,6 +63,12 @@ void runProgram(GLFWwindow* window, CommandLineOptions options)
     // Enable transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Enable debug output
+#ifdef DEBUG
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(openglErrorCallback, 0);
+#endif
 
     // Set default colour after clearing the colour buffer
     glClearColor(0.3f, 0.5f, 0.8f, 1.0f);
