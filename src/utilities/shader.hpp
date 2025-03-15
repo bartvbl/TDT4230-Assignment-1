@@ -17,7 +17,6 @@ namespace Gloom
     class Shader
     {
     private:
-
         // Private member variables
         GLuint mProgram;
         GLint  mStatus;
@@ -29,10 +28,25 @@ namespace Gloom
         }
 
         // Public member functions
-        void   activate()   { glUseProgram(mProgram); }
-        void   deactivate() { glUseProgram(0); }
-        GLuint get()        { return mProgram; }
-        void   destroy()    { glDeleteProgram(mProgram); }
+
+        void activate() {
+            glUseProgram(mProgram);
+        }
+        void deactivate() {
+            glUseProgram(0);
+        }
+        GLuint get() {
+            return mProgram;
+        }
+        void destroy() {
+            glDeleteProgram(mProgram);
+        }
+
+        /* Convenience function to get a uniforms ID from a string
+           containing its name */
+        GLint getUniformFromName(std::string const &uniformName) {
+            return glGetUniformLocation(this->get(), uniformName.c_str());
+        }
 
         /* Attach a shader to the current shader program */
         void attach(std::string const &filename)
@@ -103,13 +117,6 @@ namespace Gloom
             attach(fragmentFilename);
             link();
         }
-
-        /* Convenience function to get a uniforms ID from a string
-           containing its name */
-        GLint getUniformFromName(std::string const &uniformName) {
-            return glGetUniformLocation(this->get(), uniformName.c_str());
-        }
-
 
         /* Used for debugging shader programs (expensive to run) */
         bool isValid()

@@ -1,7 +1,9 @@
 #include "sceneGraph.hpp"
 
-SceneNode* createSceneNode() {
-	return new SceneNode();
+// The class SceneNode is defined in sceneGraph.hpp
+
+SceneNode* createSceneNode(Gloom::Shader *shader, SceneNodeType nodeType) {
+	return new SceneNode(shader, nodeType);
 }
 
 // Add a child node to its parent's list of children
@@ -22,15 +24,16 @@ void printNode(SceneNode* node) {
 	printf(
 		"SceneNode {\n"
 		"    Child count: %i\n"
+		"    Position: (%f, %f, %f)\n"
 		"    Rotation: (%f, %f, %f)\n"
-		"    Location: (%f, %f, %f)\n"
 		"    Reference point: (%f, %f, %f)\n"
 		"    VAO ID: %i\n"
+		"    indices: %i\n"
 		"}\n",
 		int(node->children.size()),
-		node->rotation.x, node->rotation.y, node->rotation.z,
 		node->position.x, node->position.y, node->position.z,
-		node->referencePoint.x, node->referencePoint.y, node->referencePoint.z, 
-		node->vertexArrayObjectID);
+		node->rotation.x, node->rotation.y, node->rotation.z,
+		node->referencePoint.x, node->referencePoint.y, node->referencePoint.z,
+		node->vertexArrayObjectID,
+		node->VAOIndexCount);
 }
-

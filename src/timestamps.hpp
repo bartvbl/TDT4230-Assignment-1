@@ -7,6 +7,12 @@
 // And cries of "WHY"
 // Proceed at your own risk.
 
+
+enum KeyFrameAction {
+    BOTTOM,
+    TOP,
+};
+
 const std::vector<double> keyFrameTimeStamps =
         {0, 0.98,
 

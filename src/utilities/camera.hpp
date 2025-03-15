@@ -18,13 +18,16 @@ namespace Gloom
     class Camera
     {
     public:
-        Camera(glm::vec3 position         = glm::vec3(0.0f, 0.0f, 2.0f),
-               GLfloat   movementSpeed    = 5.0f,
-               GLfloat   mouseSensitivity = 0.005f)
+        Camera(
+            glm::vec3 position = glm::vec3(0.0f, 0.0f, 2.0f),
+            GLfloat movementSpeed = 5.0f,
+            GLfloat mouseSensitivity = 0.005f,
+            bool fullFreedom = false)
         {
             cPosition         = position;
             cMovementSpeed    = movementSpeed;
             cMouseSensitivity = mouseSensitivity;
+            cfullFreedom      = fullFreedom;
 
             // Set up the initial view matrix
             updateViewMatrix();
@@ -33,7 +36,9 @@ namespace Gloom
         // Public member functions
 
         /* Getter for the view matrix */
-        glm::mat4 getViewMatrix() { return matView; }
+        glm::mat4 getViewMatrix() {
+            return matView;
+        }
 
 
         /* Handle keyboard inputs from a callback mechanism */
@@ -66,35 +71,23 @@ namespace Gloom
             else
             {
                 isMousePressed = false;
-                resetMouse = true;
             }
         }
 
 
         /* Handle cursor position from a callback mechanism */
-        void handleCursorPosInput(double xpos, double ypos)
+        bool handleCursorDeltaInput(double xdelta, double ydelta)
         {
             // Do nothing if the left mouse button is not pressed
             if (isMousePressed == false)
-                return;
-
-            // There should be no movement when the mouse button is released
-            if (resetMouse)
-            {
-                lastXPos = xpos;
-                lastYPos = ypos;
-                resetMouse = false;
-            }
+                return false;
 
             // Keep track of pitch and yaw for the current frame
-            fYaw   = (xpos - lastXPos) * cMouseSensitivity;
-            fPitch = (ypos - lastYPos) * cMouseSensitivity;
+            fYaw   += xdelta * cMouseSensitivity;
+            fPitch += ydelta * cMouseSensitivity;
 
-            // Update last known cursor position
-            lastXPos = xpos;
-            lastYPos = ypos;
+            return true;
         }
-
 
         /* Update the camera position and view matrix
            `deltaTime` is the time between the current and last frame */
@@ -150,16 +143,23 @@ namespace Gloom
             glm::quat qPitch = glm::quat(glm::vec3(fPitch, 0.0f, 0.0f));
             glm::quat qYaw   = glm::quat(glm::vec3(0.0f, fYaw, 0.0f));
 
-            // Reset pitch and yaw values for the current rotation
-            fPitch = 0.0f;
-            fYaw   = 0.0f;
+            glm::mat4 matRotation;
+            if (cfullFreedom) {
+                // Reset pitch and yaw values for the current rotation
+                fPitch = 0.0f;
+                fYaw   = 0.0f;
 
-            // Update camera quaternion and normalise
-            cQuaternion = qPitch * qYaw * cQuaternion;
-            cQuaternion = glm::normalize(cQuaternion);
+                // Update camera quaternion and normalise
+                cQuaternion = qPitch * qYaw * cQuaternion;
+                cQuaternion = glm::normalize(cQuaternion);
 
-            // Build rotation matrix using the camera quaternion
-            glm::mat4 matRotation = glm::mat4_cast(cQuaternion);
+                // Build rotation matrix using the camera quaternion
+                matRotation = glm::mat4_cast(cQuaternion);
+            } else {
+                matRotation
+                    =  glm::rotate(fPitch, glm::vec3(1.0, 0.0, 0.0))
+                    *  glm::rotate(fYaw, glm::vec3(0.0, 1.0, 0.0));
+            }
 
             // Build translation matrix
             glm::mat4 matTranslate = glm::translate(glm::mat4(1.0f), -cPosition);
@@ -179,17 +179,13 @@ namespace Gloom
         glm::vec3 cPosition;
 
         // Variables used for bookkeeping
-        GLboolean resetMouse     = true;
         GLboolean isMousePressed = false;
         GLboolean keysInUse[512];
-
-        // Last cursor position
-        GLfloat lastXPos = 0.0f;
-        GLfloat lastYPos = 0.0f;
 
         // Camera settings
         GLfloat cMovementSpeed;
         GLfloat cMouseSensitivity;
+        bool cfullFreedom;
 
         // View matrix
         glm::mat4 matView;

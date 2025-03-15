@@ -24,145 +24,192 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
-#include "utilities/imageLoader.hpp"
-#include "utilities/glfont.h"
-
-enum KeyFrameAction {
-    BOTTOM, TOP
-};
-
-#include <timestamps.h>
-
-double padPositionX = 0;
-double padPositionZ = 0;
-
-unsigned int currentKeyFrame = 0;
-unsigned int previousKeyFrame = 0;
-
-SceneNode* rootNode;
-SceneNode* boxNode;
-SceneNode* ballNode;
-SceneNode* padNode;
-
-double ballRadius = 3.0f;
-
-// These are heap allocated, because they should not be initialised at the start of the program
-sf::SoundBuffer* buffer;
-Gloom::Shader* shader;
+// These are heap allocated, because they should not
+// be initialised at the start of the program
+sf::SoundBuffer* soundBuffer;
 sf::Sound* sound;
 
-const glm::vec3 boxDimensions(180, 90, 90);
-const glm::vec3 padDimensions(30, 3, 40);
+// CLI options, parsed in main.cpp
+CommandLineOptions cliOptions;
 
-glm::vec3 ballPosition(0, ballRadius + padDimensions.y, boxDimensions.z / 2);
-glm::vec3 ballDirection(1, 1, 0.2f);
+// Camera instance
+bool useFreeCamera = false;
+Gloom::Camera* freeCamera;
 
-CommandLineOptions options;
 
-bool hasStarted        = false;
-bool hasLost           = false;
-bool jumpedToNextFrame = false;
-bool isPaused          = false;
 
-bool mouseLeftPressed   = false;
-bool mouseLeftReleased  = false;
-bool mouseRightPressed  = false;
-bool mouseRightReleased = false;
 
-// Modify if you want the music to start further on in the track. Measured in seconds.
-const float debug_startTime = 0;
-double totalElapsedTime = debug_startTime;
-double gameElapsedTime = debug_startTime;
 
-double mouseSensitivity = 1.0;
-double lastMouseX = windowWidth / 2;
-double lastMouseY = windowHeight / 2;
-void mouseCallback(GLFWwindow* window, double x, double y) {
-    int windowWidth, windowHeight;
-    glfwGetWindowSize(window, &windowWidth, &windowHeight);
-    glViewport(0, 0, windowWidth, windowHeight);
+// This is the root scene node that everuthing builds on
+SceneNode* rootNode = nullptr;
 
-    double deltaX = x - lastMouseX;
-    double deltaY = y - lastMouseY;
 
-    padPositionX -= mouseSensitivity * deltaX / windowWidth;
-    padPositionZ -= mouseSensitivity * deltaY / windowHeight;
 
-    if (padPositionX > 1) padPositionX = 1;
-    if (padPositionX < 0) padPositionX = 0;
-    if (padPositionZ > 1) padPositionZ = 1;
-    if (padPositionZ < 0) padPositionZ = 0;
 
-    glfwSetCursorPos(window, windowWidth / 2, windowHeight / 2);
-}
 
-//// A few lines to help you if you've never used c++ structs
+//// A few lines to help you if you've never used c++ structs:
 // struct LightSource {
 //     bool a_placeholder_value;
 // };
 // LightSource lightSources[/*Put number of light sources you want here*/];
 
-void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
-    buffer = new sf::SoundBuffer();
-    if (!buffer->loadFromFile("../res/Hall of the Mountain King.ogg")) {
-        return;
+
+
+// ===============================
+//  State and config for Breakout!
+// ===============================
+bool breakoutHasStarted = false;
+bool breakoutPlayerHasLost = false;
+bool breakoutJumpedToNextFrame = false;
+bool breakoutIsPaused = false;
+
+glm::vec2 padPosition(0, 0);
+unsigned int currentKeyFrame = 0;
+unsigned int previousKeyFrame = 0;
+
+const glm::vec3 boxDimensions(180, 90, 90);
+const glm::vec3 padDimensions(30, 3, 40);
+
+double ballRadius = 3.0f;
+glm::vec3 ballPosition(0, ballRadius + padDimensions.y, boxDimensions.z / 2);
+glm::vec3 ballDirection(1, 1, 0.2f);
+
+// Modify if you want the music to start further on in the track. Measured in seconds.
+const float debug_startTime = 0;
+double elapsedGameTimeTotal = debug_startTime;
+double elapsedGameTimePlayed = debug_startTime;
+
+SceneNode* boxNode = nullptr;
+SceneNode* ballNode = nullptr;
+SceneNode* padNode = nullptr;
+// ===============================
+
+
+
+
+// ===============================
+//         mouse handling
+// ===============================
+bool mouseLeftPressed = false;
+bool mouseLeftReleased = false;
+bool mouseRightPressed = false;
+bool mouseRightReleased = false;
+double mouseSensitivity = 1.0;
+void mouseCursorPosCallback(GLFWwindow* window, double x, double y) {
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    static double lastMouseX = (float) initialWindowWidth / 2;
+    static double lastMouseY = (float) initialWindowHeight / 2;
+    double deltaX = x - lastMouseX;
+    double deltaY = y - lastMouseY;
+
+    bool resetMouse = false;
+    if (useFreeCamera) {
+        resetMouse = freeCamera->handleCursorDeltaInput(deltaX, deltaY);
+    } else {
+        resetMouse = breakoutMouseDeltaHandler(deltaX, deltaY);
     }
 
-    options = gameOptions;
+    if (resetMouse) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        lastMouseX = (float) windowWidth / 2;
+        lastMouseY = (float) windowHeight / 2;
+        glfwSetCursorPos(window, lastMouseX, lastMouseY);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        lastMouseX = x;
+        lastMouseY = y;
+    }
+}
+// ===========================
+
+
+
+void initGame(GLFWwindow* window, CommandLineOptions options) {
+    cliOptions = options;
+    if (cliOptions.enableMusic) {
+        soundBuffer = new sf::SoundBuffer();
+        if (!soundBuffer->loadFromFile("../res/Hall of the Mountain King.ogg")) {
+            return;
+        }
+    }
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-    glfwSetCursorPosCallback(window, mouseCallback);
+    glfwSetCursorPosCallback(window, mouseCursorPosCallback);
+    glfwSetKeyCallback(window, keyboardCallback);
 
-    shader = new Gloom::Shader();
-    shader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
-    shader->activate();
+    // init camera
+    freeCamera = new Gloom::Camera(
+        // camera position
+        glm::vec3(0, 2, -20),
+        // movementSpeed
+        50.0f,
+        // mouseSensitivity
+        0.005f
+        // lock skyward direction
+        // true
+    );
 
-    // Create meshes
-    Mesh pad = cube(padDimensions, glm::vec2(30, 40), true);
-    Mesh box = cube(boxDimensions, glm::vec2(90), true, true);
-    Mesh sphere = generateSphere(1.0, 40, 40);
 
-    // Fill buffers
-    unsigned int ballVAO = generateBuffer(sphere);
-    unsigned int boxVAO  = generateBuffer(box);
-    unsigned int padVAO  = generateBuffer(pad);
+    // Define shaders
+    Gloom::Shader* simpleShader = new Gloom::Shader();
+    simpleShader->makeBasicShader(
+        "../res/shaders/simple.vert",
+        "../res/shaders/simple.frag");
+    simpleShader->activate();
+
 
     // Construct scene
-    rootNode = createSceneNode();
-    boxNode  = createSceneNode();
-    padNode  = createSceneNode();
-    ballNode = createSceneNode();
+    assert(rootNode == nullptr); // ensure we don't run initGame twice
+    rootNode = createSceneNode(simpleShader, GEOMETRY);
 
-    rootNode->children.push_back(boxNode);
+    Mesh pad = cube(padDimensions, glm::vec2(30, 40), true);
+    GLuint padVAO = generateBuffer(pad);
+    padNode = createSceneNode(simpleShader, GEOMETRY);
+    padNode->vertexArrayObjectID = padVAO;
+    padNode->VAOIndexCount = pad.indices.size();
     rootNode->children.push_back(padNode);
+
+    Mesh box = cube(boxDimensions, glm::vec2(90), true, true);
+    GLuint boxVAO = generateBuffer(box);
+    boxNode = createSceneNode(simpleShader, GEOMETRY);
+    boxNode->vertexArrayObjectID = boxVAO;
+    boxNode->VAOIndexCount = box.indices.size();
+    rootNode->children.push_back(boxNode);
+
+    Mesh sphere = generateSphere(1.0, 40, 40);
+    GLuint ballVAO = generateBuffer(sphere);
+    ballNode = createSceneNode(simpleShader, GEOMETRY);
+    ballNode->vertexArrayObjectID = ballVAO;
+    ballNode->VAOIndexCount = sphere.indices.size();
     rootNode->children.push_back(ballNode);
 
-    boxNode->vertexArrayObjectID  = boxVAO;
-    boxNode->VAOIndexCount        = box.indices.size();
 
-    padNode->vertexArrayObjectID  = padVAO;
-    padNode->VAOIndexCount        = pad.indices.size();
-
-    ballNode->vertexArrayObjectID = ballVAO;
-    ballNode->VAOIndexCount       = sphere.indices.size();
-
-
-
-
-
-
+    // call once to init
     getTimeDeltaSeconds();
 
     std::cout << fmt::format("Initialized scene with {} SceneNodes.", totalChildren(rootNode)) << std::endl;
-
     std::cout << "Ready. Click to start!" << std::endl;
+    std::cout << "Or press C to move around!" << std::endl;
 }
 
-void updateFrame(GLFWwindow* window) {
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+// ===============================
+//      Breakout! game logic
+// ===============================
+bool breakoutMouseDeltaHandler(double deltaX, double deltaY) {
+    padPosition.x -= mouseSensitivity * deltaX / initialWindowWidth;
+    padPosition.y -= mouseSensitivity * deltaY / initialWindowHeight;
 
-    double timeDelta = getTimeDeltaSeconds();
+    if (padPosition.x > 1) padPosition.x = 1;
+    if (padPosition.x < 0) padPosition.x = 0;
+    if (padPosition.y > 1) padPosition.y = 1;
+    if (padPosition.y < 0) padPosition.y = 0;
 
+    return true;
+}
+void updateBreakoutState(double timeDelta, bool listenToInputs) {
     const float ballBottomY = boxNode->position.y - (boxDimensions.y/2) + ballRadius + padDimensions.y;
     const float ballTopY    = boxNode->position.y + (boxDimensions.y/2) - ballRadius;
     const float BallVerticalTravelDistance = ballTopY - ballBottomY;
@@ -174,77 +221,62 @@ void updateFrame(GLFWwindow* window) {
     const float ballMinZ = boxNode->position.z - (boxDimensions.z/2) + ballRadius;
     const float ballMaxZ = boxNode->position.z + (boxDimensions.z/2) - ballRadius - cameraWallOffset;
 
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1)) {
-        mouseLeftPressed = true;
-        mouseLeftReleased = false;
-    } else {
-        mouseLeftReleased = mouseLeftPressed;
-        mouseLeftPressed = false;
-    }
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2)) {
-        mouseRightPressed = true;
-        mouseRightReleased = false;
-    } else {
-        mouseRightReleased = mouseRightPressed;
-        mouseRightPressed = false;
-    }
-
-    if(!hasStarted) {
-        if (mouseLeftPressed) {
-            if (options.enableMusic) {
+    if(!breakoutHasStarted) {
+        if (mouseLeftPressed && listenToInputs) {
+            if (cliOptions.enableMusic) {
                 sound = new sf::Sound();
-                sound->setBuffer(*buffer);
+                sound->setBuffer(*soundBuffer);
                 sf::Time startTime = sf::seconds(debug_startTime);
                 sound->setPlayingOffset(startTime);
                 sound->play();
             }
-            totalElapsedTime = debug_startTime;
-            gameElapsedTime = debug_startTime;
-            hasStarted = true;
+            elapsedGameTimeTotal = debug_startTime;
+            elapsedGameTimePlayed = debug_startTime;
+            breakoutHasStarted = true;
         }
 
-        ballPosition.x = ballMinX + (1 - padPositionX) * (ballMaxX - ballMinX);
+        ballPosition.x = ballMinX + (1 - padPosition.x) * (ballMaxX - ballMinX);
         ballPosition.y = ballBottomY;
-        ballPosition.z = ballMinZ + (1 - padPositionZ) * ((ballMaxZ+cameraWallOffset) - ballMinZ);
+        ballPosition.z = ballMinZ + (1 - padPosition.y) * ((ballMaxZ+cameraWallOffset) - ballMinZ);
     } else {
-        totalElapsedTime += timeDelta;
-        if(hasLost) {
-            if (mouseLeftReleased) {
-                hasLost = false;
-                hasStarted = false;
+        elapsedGameTimeTotal += timeDelta;
+        if(breakoutPlayerHasLost) {
+            if (mouseLeftReleased && listenToInputs) {
+                breakoutPlayerHasLost = false;
+                breakoutHasStarted = false;
                 currentKeyFrame = 0;
                 previousKeyFrame = 0;
             }
-        } else if (isPaused) {
-            if (mouseRightReleased) {
-                isPaused = false;
-                if (options.enableMusic) {
+        } else if (breakoutIsPaused) {
+            if (mouseRightReleased && listenToInputs) {
+                breakoutIsPaused = false;
+                if (cliOptions.enableMusic) {
                     sound->play();
                 }
             }
         } else {
-            gameElapsedTime += timeDelta;
-            if (mouseRightReleased) {
-                isPaused = true;
-                if (options.enableMusic) {
+            elapsedGameTimePlayed += timeDelta;
+            if (mouseRightReleased && listenToInputs) {
+                breakoutIsPaused = true;
+                if (cliOptions.enableMusic) {
                     sound->pause();
                 }
             }
             // Get the timing for the beat of the song
             for (unsigned int i = currentKeyFrame; i < keyFrameTimeStamps.size(); i++) {
-                if (gameElapsedTime < keyFrameTimeStamps.at(i)) {
+                if (elapsedGameTimePlayed < keyFrameTimeStamps.at(i)) {
                     continue;
                 }
                 currentKeyFrame = i;
             }
 
-            jumpedToNextFrame = currentKeyFrame != previousKeyFrame;
+            breakoutJumpedToNextFrame = currentKeyFrame != previousKeyFrame;
             previousKeyFrame = currentKeyFrame;
 
             double frameStart = keyFrameTimeStamps.at(currentKeyFrame);
             double frameEnd = keyFrameTimeStamps.at(currentKeyFrame + 1); // Assumes last keyframe at infinity
 
-            double elapsedTimeInFrame = gameElapsedTime - frameStart;
+            double elapsedTimeInFrame = elapsedGameTimePlayed - frameStart;
             double frameDuration = frameEnd - frameStart;
             double fractionFrameComplete = elapsedTimeInFrame / frameDuration;
 
@@ -286,17 +318,17 @@ void updateFrame(GLFWwindow* window) {
                 ballDirection.z *= -1;
             }
 
-            if(options.enableAutoplay) {
-                padPositionX = 1-(ballPosition.x - ballMinX) / (ballMaxX - ballMinX);
-                padPositionZ = 1-(ballPosition.z - ballMinZ) / ((ballMaxZ+cameraWallOffset) - ballMinZ);
+            if(cliOptions.enableAutoplay) {
+                padPosition.x = 1-(ballPosition.x - ballMinX) / (ballMaxX - ballMinX);
+                padPosition.y = 1-(ballPosition.z - ballMinZ) / ((ballMaxZ+cameraWallOffset) - ballMinZ);
             }
 
             // Check if the ball is hitting the pad when the ball is at the bottom.
             // If not, you just lost the game! (hehe)
-            if (jumpedToNextFrame && currentOrigin == BOTTOM && currentDestination == TOP) {
-                double padLeftX  = boxNode->position.x - (boxDimensions.x/2) + (1 - padPositionX) * (boxDimensions.x - padDimensions.x);
+            if (breakoutJumpedToNextFrame && currentOrigin == BOTTOM && currentDestination == TOP) {
+                double padLeftX  = boxNode->position.x - (boxDimensions.x/2) + (1 - padPosition.x) * (boxDimensions.x - padDimensions.x);
                 double padRightX = padLeftX + padDimensions.x;
-                double padFrontZ = boxNode->position.z - (boxDimensions.z/2) + (1 - padPositionZ) * (boxDimensions.z - padDimensions.z);
+                double padFrontZ = boxNode->position.z - (boxDimensions.z/2) + (1 - padPosition.y) * (boxDimensions.z - padDimensions.z);
                 double padBackZ  = padFrontZ + padDimensions.z;
 
                 if (   ballPosition.x < padLeftX
@@ -304,8 +336,8 @@ void updateFrame(GLFWwindow* window) {
                     || ballPosition.z < padFrontZ
                     || ballPosition.z > padBackZ
                 ) {
-                    hasLost = true;
-                    if (options.enableMusic) {
+                    breakoutPlayerHasLost = true;
+                    if (cliOptions.enableMusic) {
                         sound->stop();
                         delete sound;
                     }
@@ -313,42 +345,120 @@ void updateFrame(GLFWwindow* window) {
             }
         }
     }
+}
+// ===============================
 
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
 
-    glm::vec3 cameraPosition = glm::vec3(0, 2, -20);
+// This function is registered to be called by glfw on keypress __changes__
+//     https://www.glfw.org/docs/latest/input_guide.html#input_key
+// consider using glfwGetKey like in handleKeyboardInput in program.cpp
+// if you find continuous true/false easier to work with
+void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (useFreeCamera) {
+        freeCamera->handleKeyboardInputs(key, action);
+    }
 
-    // Some math to make the camera move in a nice way
-    float lookRotation = -0.6 / (1 + exp(-5 * (padPositionX-0.5))) + 0.3;
-    glm::mat4 cameraTransform =
-                    glm::rotate(0.3f + 0.2f * float(-padPositionZ*padPositionZ), glm::vec3(1, 0, 0)) *
-                    glm::rotate(lookRotation, glm::vec3(0, 1, 0)) *
-                    glm::translate(-cameraPosition);
+    // Quit on Q
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS)
+    {
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+    // Toggle free camera on C
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
+    {
+        useFreeCamera = !useFreeCamera;
+        std::cout << useFreeCamera << std::endl;
+    }
+}
 
-    glm::mat4 VP = projection * cameraTransform;
+float elapsedTime = 0;
+void updateFrame(GLFWwindow* window) {
+    // Time since previous frame, used to account for variation in frame times
+    double timeDelta = getTimeDeltaSeconds();
+    elapsedTime += timeDelta;
+
+    // poll mouse buttons
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1)) {
+        mouseLeftPressed = true;
+        mouseLeftReleased = false;
+    } else {
+        mouseLeftReleased = mouseLeftPressed;
+        mouseLeftPressed = false;
+    }
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2)) {
+        mouseRightPressed = true;
+        mouseRightReleased = false;
+    } else {
+        mouseRightReleased = mouseRightPressed;
+        mouseRightPressed = false;
+    }
+
+    // update free camera
+    if (useFreeCamera) {
+        freeCamera->handleMouseButtonInputs(GLFW_MOUSE_BUTTON_LEFT, mouseLeftPressed);
+    }
+
+    // update breakout
+    updateBreakoutState(timeDelta, !useFreeCamera);
+
 
     // Move and rotate various SceneNodes
     boxNode->position = { 0, -10, -80 };
 
     ballNode->position = ballPosition;
     ballNode->scale = glm::vec3(ballRadius);
-    ballNode->rotation = { 0, totalElapsedTime*2, 0 };
+    ballNode->rotation = { 0, elapsedGameTimeTotal*2, 0 };
 
     padNode->position  = {
-        boxNode->position.x - (boxDimensions.x/2) + (padDimensions.x/2) + (1 - padPositionX) * (boxDimensions.x - padDimensions.x),
+        boxNode->position.x - (boxDimensions.x/2) + (padDimensions.x/2) + (1 - padPosition.x) * (boxDimensions.x - padDimensions.x),
         boxNode->position.y - (boxDimensions.y/2) + (padDimensions.y/2),
-        boxNode->position.z - (boxDimensions.z/2) + (padDimensions.z/2) + (1 - padPositionZ) * (boxDimensions.z - padDimensions.z)
+        boxNode->position.z - (boxDimensions.z/2) + (padDimensions.z/2) + (1 - padPosition.y) * (boxDimensions.z - padDimensions.z)
     };
 
+
+
+
+
+
+    // Compute camera and perspective
+
+    glm::mat4 cameraTransform;
+
+    if (useFreeCamera) {
+        freeCamera->updateCamera(timeDelta);
+        cameraTransform = freeCamera->getViewMatrix();
+
+    } else {
+        // Some math to make the Breakout! camera move in a nice way
+        float lookRotation = -0.6 / (1 + exp(-5 * (padPosition.x-0.5))) + 0.3;
+        glm::vec3 cameraPosition = glm::vec3(0, 2, -20);
+        cameraTransform =
+            glm::rotate(0.3f + 0.2f * float(-padPosition.y*padPosition.y), glm::vec3(1, 0, 0)) *
+            glm::rotate(lookRotation, glm::vec3(0, 1, 0)) *
+            glm::translate(-cameraPosition);
+    }
+
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+    glm::mat4 projection = glm::perspective(
+        glm::radians(80.0f), /// Field of view
+        float(windowWidth) / float(windowHeight), // aspect
+        0.1f, // Near
+        350.f // Far
+    );
+
+    glm::mat4 VP = projection * cameraTransform;
+
+    // traveerse the scene node graph and precompute all the transformation matrices
     updateNodeTransformations(rootNode, VP);
-
-
-
-
 }
 
 void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar) {
-    glm::mat4 transformationMatrix =
+    // Uncomment this line if you set any glUniforms here!
+    // node->shader->activate();
+
+    glm::mat4 localTransformationMatrix =
               glm::translate(node->position)
             * glm::translate(node->referencePoint)
             * glm::rotate(node->rotation.y, glm::vec3(0,1,0))
@@ -357,7 +467,7 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar)
             * glm::scale(node->scale)
             * glm::translate(-node->referencePoint);
 
-    node->currentTransformationMatrix = transformationThusFar * transformationMatrix;
+    node->currentTransformationMatrix = transformationThusFar * localTransformationMatrix;
 
     switch(node->nodeType) {
         case GEOMETRY: break;
@@ -371,11 +481,13 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar)
 }
 
 void renderNode(SceneNode* node) {
+    node->shader->activate();
+
     glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
 
     switch(node->nodeType) {
         case GEOMETRY:
-            if(node->vertexArrayObjectID != -1) {
+            if(node->vertexArrayObjectID != 0) {
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }

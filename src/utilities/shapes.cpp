@@ -16,12 +16,12 @@ Mesh cube(glm::vec3 scale, glm::vec2 textureScale, bool tilingTextures, bool inv
     }
 
     int faces[6][4] = {
-        {2,3,0,1}, // Bottom 
-        {4,5,6,7}, // Top 
-        {7,5,3,1}, // Right 
-        {4,6,0,2}, // Left 
-        {5,4,1,0}, // Back 
-        {6,7,2,3}, // Front 
+        {2,3,0,1}, // Bottom
+        {4,5,6,7}, // Top
+        {7,5,3,1}, // Right
+        {4,6,0,2}, // Left
+        {5,4,1,0}, // Back
+        {6,7,2,3}, // Front
     };
 
     scale = scale * textureScale3d;
@@ -32,15 +32,15 @@ Mesh cube(glm::vec3 scale, glm::vec2 textureScale, bool tilingTextures, bool inv
         { scale.z, scale.y}, // Left
         { scale.x, scale.y}, // Back
         { scale.x, scale.y}, // Front
-    }; 
+    };
 
     glm::vec3 normals[6] = {
-        { 0,-1, 0}, // Bottom 
-        { 0, 1, 0}, // Top 
-        { 1, 0, 0}, // Right 
-        {-1, 0, 0}, // Left 
-        { 0, 0,-1}, // Back 
-        { 0, 0, 1}, // Front 
+        { 0,-1, 0}, // Bottom
+        { 0, 1, 0}, // Top
+        { 1, 0, 0}, // Right
+        {-1, 0, 0}, // Left
+        { 0, 0,-1}, // Back
+        { 0, 0, 1}, // Front
     };
 
     glm::vec2 UVs[4] = {
