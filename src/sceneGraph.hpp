@@ -15,10 +15,10 @@
 enum SceneNodeType {
 	// Geometry nodes have
 	GEOMETRY,
-	// Point l
+	// Point light
 	POINT_LIGHT,
-	// Light with direction and spread
-	SPOT_LIGHT,
+	// Point light with direction and spread
+	//SPOT_LIGHT,
 };
 
 struct SceneNode {
@@ -27,16 +27,17 @@ struct SceneNode {
 		this->nodeType = nodeType;
 	}
 
-	// The node's rigid transform relative to its parent
+	// The node's rigid-body transform relative to its parent
 	glm::vec3 position = glm::vec3(0, 0, 0);
-	glm::vec3 rotation = glm::vec3(0, 0, 0);
+	glm::vec3 rotation = glm::vec3(0, 0, 0); // euler angles
 	glm::vec3 scale = glm::vec3(1, 1, 1);
 
-	// The location of the node's reference point, about which rotation and scaling happens
+	// The location of the node's reference point, a coordinate in
+	// model space about which rotation and scaling happens w.r.t.
 	glm::vec3 referencePoint = glm::vec3(0, 0, 0);
 
 	// A transformation matrix representing the total transformation of this
-	// node in the scene, also contianing what it inherited from its parent.
+	// node in the scene, also containing what it inherited from its parent.
 	// This matrix is updated every frame by updateNodeTransformations.
 	glm::mat4 currentTransformationMatrix;
 
@@ -47,7 +48,7 @@ struct SceneNode {
 	std::vector<SceneNode*> children;
 
 	// The shader this node should be drawn with
-	Gloom::Shader *shader;
+	Gloom::Shader *shader = nullptr;
 
 	// Used to determine how to handle the contents of a node
 	// in places like renderNode
@@ -64,4 +65,4 @@ void addChild(SceneNode* parent, SceneNode* child);
 void printNode(SceneNode* node);
 int totalChildren(SceneNode* parent);
 
-// For more details, see SceneGraph.cpp.
+// For more details, please view SceneGraph.cpp
